@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Layout from '@/components/Layout'
 import ProdutoBadge from '@/components/ProdutoBadge'
 
@@ -7,6 +7,7 @@ type Receita = {
   id: string
   data: string
   volume: number
+  roa: number | null
   receita: number | null
   cliente_nome: string | null
   cliente_conta: string | null
@@ -51,7 +52,7 @@ export default function HistoricoClient({ nome, role, receitas: initial, institu
 
   // Modal edição
   const [editando, setEditando] = useState<Receita | null>(null)
-  const [editForm, setEditForm] = useState({ data: '', volume: '', receita: '', instituicao_id: '', produto_id: '', cliente_nome: '', cliente_conta: '', observacao: '' })
+  const [editForm, setEditForm] = useState({ data: '', volume: '', roa: '', receita: '', instituicao_id: '', produto_id: '', cliente_nome: '', cliente_conta: '', observacao: '' })
   const [salvando, setSalvando] = useState(false)
   const [excluindo, setExcluindo] = useState<string | null>(null)
   const [erro, setErro] = useState('')
@@ -67,12 +68,23 @@ export default function HistoricoClient({ nome, role, receitas: initial, institu
 
   const produtosUnicos = [...new Set(receitas.map(r => r.produtos?.nome).filter(Boolean))]
 
+  // Recalcula receita quando ROA ou volume mudam no modal
+  useEffect(() => {
+    const volume = parseMoeda(editForm.volume)
+    const roa = parseFloat(editForm.roa.replace(',', '.')) || 0
+    if (volume > 0 && roa > 0) {
+      const receita = (volume * roa) / 100
+      setEditForm(f => ({ ...f, receita: receita.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }))
+    }
+  }, [editForm.volume, editForm.roa])
+
   function abrirEdicao(r: Receita) {
     setEditando(r)
     setErro('')
     setEditForm({
       data: r.data,
       volume: numToMoeda(r.volume),
+      roa: r.roa != null ? String(r.roa).replace('.', ',') : '',
       receita: numToMoeda(r.receita),
       instituicao_id: r.instituicao_id ?? '',
       produto_id: r.produto_id ?? '',
@@ -98,6 +110,7 @@ export default function HistoricoClient({ nome, role, receitas: initial, institu
         id: editando.id,
         data: editForm.data,
         volume,
+        roa: editForm.roa ? parseFloat(editForm.roa.replace(',', '.')) : null,
         receita: editForm.receita ? parseMoeda(editForm.receita) : null,
         instituicao_id: editForm.instituicao_id,
         produto_id: editForm.produto_id,
@@ -274,8 +287,18 @@ export default function HistoricoClient({ nome, role, receitas: initial, institu
                   <input className="input" type="text" placeholder="Ex: 12345-6" value={editForm.cliente_conta} onChange={e => setEditForm(f => ({ ...f, cliente_conta: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="label">Receita recebida (R$)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0,00 — opcional" value={editForm.receita} onChange={e => setEditForm(f => ({ ...f, receita: formatarMoeda(e.target.value) }))} />
+                  <label className="label">ROA (%)</label>
+                  <div className="relative">
+                    <input className="input pr-8" type="text" inputMode="decimal" placeholder="Ex: 0,50" value={editForm.roa} onChange={e => setEditForm(f => ({ ...f, roa: e.target.value }))} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="label">
+                    Receita gerada (R$)
+                    {editForm.roa && <span className="ml-2 text-xs text-utah-500 font-normal">calculado pelo ROA</span>}
+                  </label>
+                  <input className="input bg-gray-50" type="text" inputMode="numeric" placeholder="0,00 — opcional" value={editForm.receita} onChange={e => setEditForm(f => ({ ...f, receita: formatarMoeda(e.target.value) }))} />
                 </div>
               </div>
               <div>

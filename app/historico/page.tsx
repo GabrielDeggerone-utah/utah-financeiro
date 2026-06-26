@@ -13,7 +13,7 @@ export default async function HistoricoPage() {
   const [{ data: receitas }, { data: instituicoes }, { data: produtos }] = await Promise.all([
     supabase
       .from('receitas')
-      .select(`id, data, volume, receita, cliente_nome, cliente_conta, observacao, created_at,
+      .select(`id, data, volume, roa, receita, cliente_nome, cliente_conta, observacao, created_at,
                instituicao_id, produto_id, instituicoes(nome), produtos(nome)`)
       .eq('assessor_id', user.id)
       .order('data', { ascending: false })

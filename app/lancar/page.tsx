@@ -13,12 +13,10 @@ export default async function LancarPage() {
     supabase.from('produtos').select('id,nome').eq('ativo', true).order('nome'),
   ])
 
-  if (profileRes.data?.role === 'master') redirect('/master')
-
   return (
     <LancarClient
       nome={profileRes.data?.nome ?? ''}
-      role="assessor"
+      role={(profileRes.data?.role as 'assessor' | 'master') ?? 'assessor'}
       instituicoes={instituicoesRes.data ?? []}
       produtos={produtosRes.data ?? []}
     />

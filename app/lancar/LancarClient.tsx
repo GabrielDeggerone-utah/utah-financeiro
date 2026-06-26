@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Layout from '@/components/Layout'
 import { createClient } from '@/lib/supabase'
 
@@ -20,6 +20,7 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
   const [form, setForm] = useState({
     data: hoje,
     volume: '',
+    roa: '',
     receita: '',
     instituicao_id: '',
     produto_id: '',
@@ -27,12 +28,6 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
     cliente_conta: '',
     observacao: '',
   })
-
-  function set(field: string, value: string) {
-    setForm(f => ({ ...f, [field]: value }))
-    setSucesso(false)
-    setErro('')
-  }
 
   function formatarMoeda(valor: string) {
     const num = valor.replace(/\D/g, '')
@@ -43,6 +38,29 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
   function parseMoeda(valor: string) {
     return parseFloat(valor.replace(/\./g, '').replace(',', '.')) || 0
   }
+
+  function parseRoa(valor: string) {
+    return parseFloat(valor.replace(',', '.')) || 0
+  }
+
+  function set(field: string, value: string) {
+    setForm(f => ({ ...f, [field]: value }))
+    setSucesso(false)
+    setErro('')
+  }
+
+  // Recalcula receita automaticamente quando volume ou ROA mudam
+  useEffect(() => {
+    const volume = parseMoeda(form.volume)
+    const roa = parseRoa(form.roa)
+    if (volume > 0 && roa > 0) {
+      const receita = (volume * roa) / 100
+      setForm(f => ({
+        ...f,
+        receita: receita.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      }))
+    }
+  }, [form.volume, form.roa])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -62,6 +80,7 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
       assessor_id:    user!.id,
       data:           form.data,
       volume,
+      roa:            form.roa ? parseRoa(form.roa) : null,
       receita:        form.receita ? parseMoeda(form.receita) : null,
       instituicao_id: form.instituicao_id,
       produto_id:     form.produto_id,
@@ -74,7 +93,13 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
     if (error) { setErro('Erro ao salvar. Tente novamente.'); return }
 
     setSucesso(true)
-    setForm({ data: hoje, volume: '', receita: '', instituicao_id: '', produto_id: '', cliente_nome: '', cliente_conta: '', observacao: '' })
+    setForm({ data: hoje, volume: '', roa: '', receita: '', instituicao_id: '', produto_id: '', cliente_nome: '', cliente_conta: '', observacao: '' })
+  }
+
+  function limpar() {
+    setForm({ data: hoje, volume: '', roa: '', receita: '', instituicao_id: '', produto_id: '', cliente_nome: '', cliente_conta: '', observacao: '' })
+    setSucesso(false)
+    setErro('')
   }
 
   return (
@@ -113,6 +138,36 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
               />
             </div>
             <div>
+              <label className="label">ROA (%)</label>
+              <div className="relative">
+                <input
+                  className="input pr-8"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 0,50"
+                  value={form.roa}
+                  onChange={e => set('roa', e.target.value)}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+              </div>
+            </div>
+            <div>
+              <label className="label">
+                Receita gerada (R$)
+                {form.roa && form.volume && (
+                  <span className="ml-2 text-xs text-utah-500 font-normal">calculado pelo ROA</span>
+                )}
+              </label>
+              <input
+                className="input bg-gray-50"
+                type="text"
+                inputMode="numeric"
+                placeholder="0,00 — opcional"
+                value={form.receita}
+                onChange={e => set('receita', formatarMoeda(e.target.value))}
+              />
+            </div>
+            <div>
               <label className="label">Instituição *</label>
               <select className="input" value={form.instituicao_id} onChange={e => set('instituicao_id', e.target.value)} required>
                 <option value="">Selecione...</option>
@@ -134,17 +189,6 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
               <label className="label">Cliente — N° conta</label>
               <input className="input" type="text" placeholder="Ex: 12345-6" value={form.cliente_conta} onChange={e => set('cliente_conta', e.target.value)} />
             </div>
-            <div>
-              <label className="label">Receita recebida (R$)</label>
-              <input
-                className="input"
-                type="text"
-                inputMode="numeric"
-                placeholder="0,00 — opcional"
-                value={form.receita}
-                onChange={e => set('receita', formatarMoeda(e.target.value))}
-              />
-            </div>
           </div>
 
           <div>
@@ -153,9 +197,7 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn-secondary" onClick={() => setForm({ data: hoje, volume: '', receita: '', instituicao_id: '', produto_id: '', cliente_nome: '', cliente_conta: '', observacao: '' })}>
-              Limpar
-            </button>
+            <button type="button" className="btn-secondary" onClick={limpar}>Limpar</button>
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? 'Salvando...' : 'Registrar lançamento'}
             </button>

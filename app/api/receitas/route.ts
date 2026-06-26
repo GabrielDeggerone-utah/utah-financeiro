@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest) {
   const ctx = await getUsuario()
   if (!ctx) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
-  const { id, data, volume, receita, instituicao_id, produto_id, cliente_nome, cliente_conta, observacao } = await req.json()
+  const { id, data, volume, roa, receita, instituicao_id, produto_id, cliente_nome, cliente_conta, observacao } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID obrigatório' }, { status: 400 })
 
   const admin = createAdminSupabase()
@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { error } = await admin.from('receitas').update({
-    data, volume, receita: receita || null,
+    data, volume, roa: roa || null, receita: receita || null,
     instituicao_id, produto_id,
     cliente_nome: cliente_nome || null,
     cliente_conta: cliente_conta || null,

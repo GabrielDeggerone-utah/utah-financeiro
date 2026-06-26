@@ -18,7 +18,7 @@ export default async function MasterPage() {
   ] = await Promise.all([
     supabase
       .from('receitas')
-      .select(`id, data, volume, receita, cliente_nome, cliente_conta, observacao, created_at,
+      .select(`id, data, volume, roa, receita, cliente_nome, cliente_conta, observacao, created_at,
                assessor_id, instituicao_id, produto_id, profiles(nome), instituicoes(nome), produtos(nome)`)
       .order('data', { ascending: false })
       .order('created_at', { ascending: false }),

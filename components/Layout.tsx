@@ -16,6 +16,7 @@ const navAssessor = [
 
 const navMaster = [
   { href: '/master',                   label: 'Painel geral',      icon: ChartIcon },
+  { href: '/lancar',                   label: 'Lançar receita',    icon: PlusIcon },
   { href: '/master/assessores',        label: 'Assessores',        icon: UsersIcon },
   { href: '/master/configuracoes',     label: 'Configurações',     icon: SettingsIcon },
 ]
