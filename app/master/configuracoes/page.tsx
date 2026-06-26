@@ -3,7 +3,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import ConfigClient from './ConfigClient'
 
 export default async function ConfigPage() {
-  const supabase = await createServerSupabase()
+  const supabase = createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 

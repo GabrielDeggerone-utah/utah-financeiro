@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 
-async function getSupabaseMaster() {
-  const supabase = await createServerSupabase()
+function getSupabaseMaster() {
+  const supabase = createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data: p } = await supabase.from('profiles').select('role').eq('id', user.id).single()

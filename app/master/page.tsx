@@ -3,7 +3,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import MasterClient from './MasterClient'
 
 export default async function MasterPage() {
-  const supabase = await createServerSupabase()
+  const supabase = createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
