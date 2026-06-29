@@ -70,7 +70,8 @@ export default function LancarClient({ nome, role, instituicoes, produtos }: Pro
     e.preventDefault()
     setErro(''); setSucesso('')
     const bruta = parseMoeda(formC.captacao_bruta)
-    if (!bruta || bruta <= 0) { setErro('Captação bruta deve ser maior que zero.'); return }
+    const saidas = parseMoeda(formC.saidas)
+    if (bruta === 0 && saidas === 0) { setErro('Informe ao menos captação bruta ou saídas.'); return }
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('captacoes').insert({
