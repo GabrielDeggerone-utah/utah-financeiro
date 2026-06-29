@@ -18,6 +18,7 @@ const navAssessor = [
 const navMaster = [
   { href: '/master',               label: 'Painel geral',    icon: ChartIcon },
   { href: '/lancar',               label: 'Lançar',          icon: PlusIcon },
+  { href: '/historico',            label: 'Meu histórico',   icon: HistoryIcon },
   { href: '/metas',                label: 'Minhas metas',    icon: TargetIcon },
   { href: '/master/metas',         label: 'Gerir metas',     icon: FlagIcon },
   { href: '/master/assessores',    label: 'Assessores',      icon: UsersIcon },

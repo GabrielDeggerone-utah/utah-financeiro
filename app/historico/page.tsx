@@ -8,7 +8,6 @@ export default async function HistoricoPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('profiles').select('nome,role').eq('id', user.id).single()
-  if (profile?.role === 'master') redirect('/master')
 
   const [{ data: receitas }, { data: instituicoes }, { data: produtos }, { data: captacoes }, { data: contas }] = await Promise.all([
     supabase
@@ -29,7 +28,7 @@ export default async function HistoricoPage() {
   return (
     <HistoricoClient
       nome={profile?.nome ?? ''}
-      role="assessor"
+      role={(profile?.role as 'assessor' | 'master') ?? 'assessor'}
       receitas={receitas ?? []}
       instituicoes={instituicoes ?? []}
       produtos={produtos ?? []}
