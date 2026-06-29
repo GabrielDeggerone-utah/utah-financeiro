@@ -10,15 +10,18 @@ type Props = {
 }
 
 const navAssessor = [
-  { href: '/lancar',    label: 'Lançar receita',  icon: PlusIcon },
-  { href: '/historico', label: 'Meu histórico',   icon: HistoryIcon },
+  { href: '/lancar',    label: 'Lançar',         icon: PlusIcon },
+  { href: '/historico', label: 'Meu histórico',  icon: HistoryIcon },
+  { href: '/metas',     label: 'Minhas metas',   icon: TargetIcon },
 ]
 
 const navMaster = [
-  { href: '/master',                   label: 'Painel geral',      icon: ChartIcon },
-  { href: '/lancar',                   label: 'Lançar receita',    icon: PlusIcon },
-  { href: '/master/assessores',        label: 'Assessores',        icon: UsersIcon },
-  { href: '/master/configuracoes',     label: 'Configurações',     icon: SettingsIcon },
+  { href: '/master',               label: 'Painel geral',    icon: ChartIcon },
+  { href: '/lancar',               label: 'Lançar',          icon: PlusIcon },
+  { href: '/metas',                label: 'Minhas metas',    icon: TargetIcon },
+  { href: '/master/metas',         label: 'Gerir metas',     icon: FlagIcon },
+  { href: '/master/assessores',    label: 'Assessores',      icon: UsersIcon },
+  { href: '/master/configuracoes', label: 'Configurações',   icon: SettingsIcon },
 ]
 
 export default function Layout({ children, nome, role }: Props) {
@@ -107,4 +110,10 @@ function SettingsIcon({ className }: { className?: string }) {
 }
 function LogoutIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+}
+function TargetIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+}
+function FlagIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 2H21l-3 6 3 6H8l-1-2H5a2 2 0 00-2 2z" /></svg>
 }

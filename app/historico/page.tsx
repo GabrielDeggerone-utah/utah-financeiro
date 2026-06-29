@@ -10,7 +10,7 @@ export default async function HistoricoPage() {
   const { data: profile } = await supabase.from('profiles').select('nome,role').eq('id', user.id).single()
   if (profile?.role === 'master') redirect('/master')
 
-  const [{ data: receitas }, { data: instituicoes }, { data: produtos }] = await Promise.all([
+  const [{ data: receitas }, { data: instituicoes }, { data: produtos }, { data: captacoes }, { data: contas }] = await Promise.all([
     supabase
       .from('receitas')
       .select(`id, data, volume, roa, receita, cliente_nome, cliente_conta, observacao, created_at,
@@ -20,6 +20,10 @@ export default async function HistoricoPage() {
       .order('created_at', { ascending: false }),
     supabase.from('instituicoes').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
+    supabase.from('captacoes').select('id, data, captacao_bruta, saidas, observacao, created_at')
+      .eq('assessor_id', user.id).order('data', { ascending: false }),
+    supabase.from('contas_mes').select('id, mes, contas_abertas, contas_ativas, observacao')
+      .eq('assessor_id', user.id).order('mes', { ascending: false }),
   ])
 
   return (
@@ -29,6 +33,8 @@ export default async function HistoricoPage() {
       receitas={receitas ?? []}
       instituicoes={instituicoes ?? []}
       produtos={produtos ?? []}
+      captacoes={captacoes ?? []}
+      contas={contas ?? []}
     />
   )
 }
