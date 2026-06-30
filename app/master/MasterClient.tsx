@@ -6,14 +6,15 @@ function ProdutoBadge({ nome }: { nome: string }) {
   return <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-utah-50 text-utah-700">{nome}</span>
 }
 
+type NomeObj = { nome: string } | { nome: string }[] | null
 type Receita = {
   id: string; data: string; volume: number; roa: number | null; receita: number | null
   cliente_nome: string | null; cliente_conta: string | null; observacao: string | null
   assessor_id: string; instituicao_id: string | null; produto_id: string | null
-  profiles: { nome: string } | null; instituicoes: { nome: string } | null; produtos: { nome: string } | null
+  profiles: NomeObj; instituicoes: NomeObj; produtos: NomeObj
 }
-type Captacao = { id: string; data: string; captacao_bruta: number; saidas: number; observacao: string | null; assessor_id: string; profiles: { nome: string } | null }
-type Conta    = { id: string; mes: string; contas_abertas: number; contas_ativas: number; observacao: string | null; assessor_id: string; profiles: { nome: string } | null }
+type Captacao = { id: string; data: string; captacao_bruta: number; saidas: number; observacao: string | null; assessor_id: string; profiles: NomeObj }
+type Conta    = { id: string; mes: string; contas_abertas: number; contas_ativas: number; observacao: string | null; assessor_id: string; profiles: NomeObj }
 type Meta     = { assessor_id: string; mes: string; meta_producao: number; meta_captacao_bruta: number; meta_captacao_net: number; meta_contas_abertas: number; meta_contas_ativas: number }
 type Assessor = { id: string; nome: string }
 type Backup   = { id: string; nome_arquivo: string; tipo: string; total_registros: number | null; created_at: string }
@@ -25,9 +26,11 @@ type Props = {
   captacoes: Captacao[]; contas: Conta[]; metas: Meta[]; assessores: Assessor[]
 }
 
-function fmt(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
-function fmtData(d: string) { const [y,m,day] = d.split('-'); return `${day}/${m}/${y}` }
-function fmtMes(m: string) { const [y,mo] = m.split('-'); return new Date(Number(y),Number(mo)-1).toLocaleString('pt-BR',{month:'long',year:'numeric'}) }
+function fmt(v: number) { return (v??0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
+function fmtData(d: string) { if(!d) return '—'; const [y,m,day] = d.split('-'); return `${day}/${m}/${y}` }
+function fmtMes(m: string) { if(!m) return '—'; const [y,mo] = m.split('-'); return new Date(Number(y),Number(mo)-1).toLocaleString('pt-BR',{month:'long',year:'numeric'}) }
+// Supabase returns joined tables as object or array depending on FK config
+function getNome(p: {nome:string}|{nome:string}[]|null|undefined): string { if(!p) return ''; if(Array.isArray(p)) return p[0]?.nome??''; return p.nome??'' }
 function fmtTs(ts: string) { return new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) }
 function parseMoeda(v: string) { return parseFloat(v.replace(/\./g,'').replace(',','.')) || 0 }
 function fmtMoedaInput(v: string) { const n=v.replace(/\D/g,''); if(!n) return ''; return (parseInt(n)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
@@ -78,8 +81,8 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR,
   // Filtros produção
   const filtradas = receitas.filter(r => {
     const mesOk  = mesFiltro     ? r.data.startsWith(mesFiltro) : true
-    const assOk  = assessorFiltro ? r.profiles?.nome === assessorFiltro : true
-    const prodOk = produtoFiltro  ? r.produtos?.nome  === produtoFiltro  : true
+    const assOk  = assessorFiltro ? getNome(r.profiles) === assessorFiltro : true
+    const prodOk = produtoFiltro  ? getNome(r.produtos)  === produtoFiltro  : true
     return mesOk && assOk && prodOk
   })
   const filtCap = captacoes.filter(c => mesFiltro ? c.data.startsWith(mesFiltro) : true)
@@ -121,8 +124,8 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR,
     contas_ativas:  contas.filter(c=>c.mes===mesAtual).reduce((s,c)=>s+c.contas_ativas,0),
   }
 
-  const assessoresUnicos = [...new Set(receitas.map(r=>r.profiles?.nome).filter(Boolean))]
-  const produtosUnicos   = [...new Set(receitas.map(r=>r.produtos?.nome).filter(Boolean))]
+  const assessoresUnicos = [...new Set(receitas.map(r=>getNome(r.profiles)).filter(Boolean))]
+  const produtosUnicos   = [...new Set(receitas.map(r=>getNome(r.produtos)).filter(Boolean))]
 
   // Handlers receita
   function abrirEditR(r: Receita) {
@@ -302,7 +305,7 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR,
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
                   {Object.values(filtradas.reduce<Record<string,{nome:string;vol:number;rec:number;qtd:number}>>((acc,r)=>{
-                    const id=r.assessor_id; const n=r.profiles?.nome??'Desconhecido'
+                    const id=r.assessor_id; const n=getNome(r.profiles)||'Desconhecido'
                     if(!acc[id]) acc[id]={nome:n,vol:0,rec:0,qtd:0}
                     acc[id].vol+=r.volume; acc[id].rec+=(r.receita??0); acc[id].qtd++; return acc
                   },{})).sort((a,b)=>b.vol-a.vol).map(a=>(
@@ -337,10 +340,10 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR,
                       {filtradas.map(r=>(
                         <tr key={r.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-600">{fmtData(r.data)}</td>
-                          <td className="px-4 py-3 font-medium text-gray-900">{r.profiles?.nome??'—'}</td>
+                          <td className="px-4 py-3 font-medium text-gray-900">{getNome(r.profiles)||'—'}</td>
                           <td className="px-4 py-3 text-gray-700">{r.cliente_nome||''}{r.cliente_nome&&r.cliente_conta?' · ':''}{r.cliente_conta?<span className="text-gray-400">{r.cliente_conta}</span>:''}{!r.cliente_nome&&!r.cliente_conta?<span className="text-gray-400">—</span>:''}</td>
-                          <td className="px-4 py-3"><ProdutoBadge nome={r.produtos?.nome??''}/></td>
-                          <td className="px-4 py-3 text-gray-600">{r.instituicoes?.nome??'—'}</td>
+                          <td className="px-4 py-3"><ProdutoBadge nome={getNome(r.produtos)}/></td>
+                          <td className="px-4 py-3 text-gray-600">{getNome(r.instituicoes)||'—'}</td>
                           <td className="px-4 py-3 text-right font-medium text-gray-900">{fmt(r.volume)}</td>
                           <td className="px-4 py-3 text-right text-gray-600">{r.receita?fmt(r.receita):'—'}</td>
                           <td className="px-4 py-3"><BtnsAcao id={r.id} onEdit={()=>abrirEditR(r)} onDel={()=>excluirR(r.id)}/></td>
@@ -390,7 +393,7 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR,
                         return (
                           <tr key={c.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-gray-600">{fmtData(c.data)}</td>
-                            <td className="px-4 py-3 font-medium text-gray-900">{c.profiles?.nome??'—'}</td>
+                            <td className="px-4 py-3 font-medium text-gray-900">{getNome(c.profiles)||'—'}</td>
                             <td className="px-4 py-3 text-right font-medium text-gray-900">{fmt(c.captacao_bruta)}</td>
                             <td className="px-4 py-3 text-right text-red-500">{c.saidas>0?fmt(c.saidas):'—'}</td>
                             <td className={`px-4 py-3 text-right font-medium ${net>=0?'text-green-700':'text-red-600'}`}>{fmt(net)}</td>
@@ -423,7 +426,7 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR,
                   {contas.map(c=>(
                     <tr key={c.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-700 capitalize">{fmtMes(c.mes)}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{c.profiles?.nome??'—'}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{getNome(c.profiles)||'—'}</td>
                       <td className="px-4 py-3 text-right text-gray-900 font-medium">{c.contas_abertas}</td>
                       <td className="px-4 py-3 text-right text-gray-900 font-medium">{c.contas_ativas}</td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{c.observacao||'—'}</td>
@@ -582,7 +585,7 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR,
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-base font-semibold text-gray-900">Editar captação — {editC.profiles?.nome}</h2>
+              <h2 className="text-base font-semibold text-gray-900">Editar captação — {getNome(editC.profiles)}</h2>
               <button onClick={()=>setEditC(null)} className="text-gray-400 hover:text-gray-600"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             <div className="px-6 py-4 space-y-3">
