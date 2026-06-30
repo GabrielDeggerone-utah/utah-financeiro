@@ -53,10 +53,10 @@ function Ring({ pct, size=64 }: { pct: number; size?: number }) {
   )
 }
 
-export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR, backups, instituicoes, produtos, captacoes: initC, contas: initCt, metas, assessores }: Props) {
-  const [receitas, setReceitas]   = useState(initR)
-  const [captacoes, setCaptacoes] = useState(initC)
-  const [contas, setContas]       = useState(initCt)
+export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR = [], backups = [], instituicoes = [], produtos = [], captacoes: initC = [], contas: initCt = [], metas = [], assessores = [] }: Props) {
+  const [receitas, setReceitas]   = useState<Receita[]>(initR)
+  const [captacoes, setCaptacoes] = useState<Captacao[]>(initC)
+  const [contas, setContas]       = useState<Conta[]>(initCt)
   const [mesFiltro, setMesFiltro] = useState(mesAtual)
   const [assessorFiltro, setAssessorFiltro] = useState('')
   const [produtoFiltro, setProdutoFiltro]   = useState('')
