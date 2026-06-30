@@ -1,7 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Layout from '@/components/Layout'
-import ProdutoBadge from '@/components/ProdutoBadge'
+function ProdutoBadge({ nome }: { nome: string }) {
+  if (!nome) return <span className="text-gray-400">—</span>
+  return <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-utah-50 text-utah-700">{nome}</span>
+}
 
 type Receita = {
   id: string; data: string; volume: number; roa: number | null; receita: number | null
