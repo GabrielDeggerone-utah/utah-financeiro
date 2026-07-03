@@ -43,16 +43,17 @@ export default async function MasterPage() {
     admin.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
     admin
       .from('captacoes')
-      .select('id, data, captacao_bruta, saidas, observacao, created_at, assessor_id, profiles!captacoes_assessor_id_fkey(nome)')
+      .select('id, data, captacao_bruta, tipo, observacao, created_at, assessor_id, profiles!captacoes_assessor_id_fkey(nome)')
       .gte('data', inicioRange)
       .order('data', { ascending: false }),
     admin
-      .from('contas_mes')
-      .select('id, mes, contas_abertas, contas_ativas, observacao, assessor_id, profiles!contas_mes_assessor_id_fkey(nome)')
+      .from('contas')
+      .select('id, mes, tipo, numero_conta, nome_cliente, valor_ativacao, pontos, observacao, assessor_id, profiles(nome)')
+      .in('mes', [mesAtual, mesPrev])
       .order('mes', { ascending: false }),
     admin
       .from('metas')
-      .select('*')
+      .select('assessor_id,mes,meta_receita,meta_captacao_net,meta_contas_abertas,meta_pontos')
       .eq('mes', mesAtual),
     admin.from('profiles').select('id, nome').order('nome'),
   ])

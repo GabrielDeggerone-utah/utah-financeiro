@@ -19,9 +19,9 @@ export default async function HistoricoPage() {
       .order('created_at', { ascending: false }),
     supabase.from('instituicoes').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
-    supabase.from('captacoes').select('id, data, captacao_bruta, saidas, observacao, created_at')
+    supabase.from('captacoes').select('id, data, captacao_bruta, tipo, observacao, created_at')
       .eq('assessor_id', user.id).order('data', { ascending: false }),
-    supabase.from('contas_mes').select('id, mes, contas_abertas, contas_ativas, observacao')
+    supabase.from('contas').select('id, mes, tipo, numero_conta, nome_cliente, valor_ativacao, pontos, observacao')
       .eq('assessor_id', user.id).order('mes', { ascending: false }),
   ])
 

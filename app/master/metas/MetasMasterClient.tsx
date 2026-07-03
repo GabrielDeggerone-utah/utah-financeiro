@@ -3,10 +3,10 @@ import { useState } from 'react'
 import Layout from '@/components/Layout'
 
 type Assessor = { id: string; nome: string }
-type Meta = { assessor_id: string; mes: string; meta_producao: number; meta_captacao_bruta: number; meta_captacao_net: number; meta_contas_abertas: number; meta_contas_ativas: number }
-type Receita = { assessor_id: string; data: string; volume: number }
-type Captacao = { assessor_id: string; data: string; captacao_bruta: number; saidas: number }
-type Conta = { assessor_id: string; mes: string; contas_abertas: number; contas_ativas: number }
+type Meta = { assessor_id: string; mes: string; meta_receita: number; meta_captacao_net: number; meta_contas_abertas: number; meta_pontos: number }
+type Receita = { assessor_id: string; data: string; receita: number | null }
+type Captacao = { assessor_id: string; data: string; captacao_bruta: number }
+type Conta = { assessor_id: string; mes: string; pontos: number }
 
 type Props = {
   nome: string
@@ -42,13 +42,13 @@ function Ring({ pct }: { pct: number }) {
   )
 }
 
-const VAZIO: Meta = { assessor_id: '', mes: '', meta_producao: 0, meta_captacao_bruta: 0, meta_captacao_net: 0, meta_contas_abertas: 0, meta_contas_ativas: 0 }
+const VAZIO: Meta = { assessor_id: '', mes: '', meta_receita: 0, meta_captacao_net: 0, meta_contas_abertas: 0, meta_pontos: 0 }
 
 export default function MetasMasterClient({ nome, mesAtual, meses, assessores, todasMetas: initMetas, receitas, captacoes, contas }: Props) {
   const [mesSel, setMesSel] = useState(mesAtual)
   const [todasMetas, setTodasMetas] = useState(initMetas)
   const [editando, setEditando] = useState<Assessor | null>(null)
-  const [form, setForm] = useState({ meta_producao: '', meta_captacao_bruta: '', meta_captacao_net: '', meta_contas_abertas: '', meta_contas_ativas: '' })
+  const [form, setForm] = useState({ meta_receita: '', meta_captacao_net: '', meta_contas_abertas: '', meta_pontos: '' })
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
@@ -56,17 +56,15 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
     return todasMetas.find(m => m.assessor_id === assessorId && m.mes === mes) ?? { ...VAZIO, assessor_id: assessorId, mes }
   }
 
-  function getRealProd(assessorId: string, mes: string) {
-    return receitas.filter(r => r.assessor_id === assessorId && r.data.startsWith(mes)).reduce((s, r) => s + r.volume, 0)
+  function getRealReceita(assessorId: string, mes: string) {
+    return receitas.filter(r => r.assessor_id === assessorId && r.data.startsWith(mes)).reduce((s, r) => s + (r.receita ?? 0), 0)
   }
   function getRealCap(assessorId: string, mes: string) {
-    const list = captacoes.filter(r => r.assessor_id === assessorId && r.data.startsWith(mes))
-    const bruta = list.reduce((s, r) => s + r.captacao_bruta, 0)
-    const saidas = list.reduce((s, r) => s + r.saidas, 0)
-    return { bruta, saidas, net: bruta - saidas }
+    return captacoes.filter(c => c.assessor_id === assessorId && c.data.startsWith(mes)).reduce((s, c) => s + c.captacao_bruta, 0)
   }
   function getRealContas(assessorId: string, mes: string) {
-    return contas.find(c => c.assessor_id === assessorId && c.mes === mes) ?? { contas_abertas: 0, contas_ativas: 0 }
+    const list = contas.filter(c => c.assessor_id === assessorId && c.mes === mes)
+    return { count: list.length, pontos: list.reduce((s, c) => s + c.pontos, 0) }
   }
 
   function abrirEdicao(a: Assessor) {
@@ -74,11 +72,10 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
     setEditando(a)
     setErro('')
     setForm({
-      meta_producao:       numToFmt(m.meta_producao),
-      meta_captacao_bruta: numToFmt(m.meta_captacao_bruta),
+      meta_receita:        numToFmt(m.meta_receita),
       meta_captacao_net:   numToFmt(m.meta_captacao_net),
       meta_contas_abertas: m.meta_contas_abertas > 0 ? String(m.meta_contas_abertas) : '',
-      meta_contas_ativas:  m.meta_contas_ativas  > 0 ? String(m.meta_contas_ativas)  : '',
+      meta_pontos:         m.meta_pontos > 0 ? String(m.meta_pontos) : '',
     })
   }
 
@@ -92,11 +89,10 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
       body: JSON.stringify({
         assessor_id:         editando.id,
         mes:                 mesSel,
-        meta_producao:       parseMoeda(form.meta_producao),
-        meta_captacao_bruta: parseMoeda(form.meta_captacao_bruta),
+        meta_receita:        parseMoeda(form.meta_receita),
         meta_captacao_net:   parseMoeda(form.meta_captacao_net),
         meta_contas_abertas: parseInt(form.meta_contas_abertas) || 0,
-        meta_contas_ativas:  parseInt(form.meta_contas_ativas)  || 0,
+        meta_pontos:         parseFloat(form.meta_pontos.replace(',', '.')) || 0,
       }),
     })
     setSalvando(false)
@@ -123,7 +119,6 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
           </select>
         </div>
 
-        {/* Tabela de assessores */}
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <p className="text-sm font-medium text-gray-700">Assessores — {fmtMes(mesSel)}</p>
@@ -134,59 +129,50 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Assessor</th>
-                  <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">Produção</th>
-                  <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">Cap. Bruta</th>
+                  <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">Receita</th>
                   <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">Cap. NET</th>
-                  <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">C. Abertas</th>
-                  <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">C. Ativas</th>
+                  <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">Contas</th>
+                  <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">Pontos</th>
                   <th className="px-3 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {assessores.map(a => {
                   const meta = getMeta(a.id, mesSel)
-                  const prod = getRealProd(a.id, mesSel)
-                  const cap  = getRealCap(a.id, mesSel)
-                  const ct   = getRealContas(a.id, mesSel)
-                  const pProd = meta.meta_producao > 0 ? prod / meta.meta_producao : 0
-                  const pCBr  = meta.meta_captacao_bruta > 0 ? cap.bruta / meta.meta_captacao_bruta : 0
-                  const pCNet = meta.meta_captacao_net  > 0 ? cap.net  / meta.meta_captacao_net  : 0
-                  const pCAb  = meta.meta_contas_abertas > 0 ? ct.contas_abertas / meta.meta_contas_abertas : 0
-                  const pCAt  = meta.meta_contas_ativas  > 0 ? ct.contas_ativas  / meta.meta_contas_ativas  : 0
+                  const receita = getRealReceita(a.id, mesSel)
+                  const net = getRealCap(a.id, mesSel)
+                  const ct = getRealContas(a.id, mesSel)
+                  const pRec  = meta.meta_receita       > 0 ? receita   / meta.meta_receita       : 0
+                  const pNet  = meta.meta_captacao_net   > 0 ? net       / meta.meta_captacao_net   : 0
+                  const pCt   = meta.meta_contas_abertas > 0 ? ct.count  / meta.meta_contas_abertas : 0
+                  const pPts  = meta.meta_pontos         > 0 ? ct.pontos / meta.meta_pontos         : 0
                   return (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900">{a.nome}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-col items-center">
-                          <Ring pct={pProd} />
-                          <span className="text-xs text-gray-500 mt-0.5">{fmt(prod)}</span>
-                          <span className="text-xs text-gray-300">/{fmt(meta.meta_producao)}</span>
+                          <Ring pct={pRec} />
+                          <span className="text-xs text-gray-500 mt-0.5">{fmt(receita)}</span>
+                          <span className="text-xs text-gray-300">/{fmt(meta.meta_receita)}</span>
                         </div>
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-col items-center">
-                          <Ring pct={pCBr} />
-                          <span className="text-xs text-gray-500 mt-0.5">{fmt(cap.bruta)}</span>
-                          <span className="text-xs text-gray-300">/{fmt(meta.meta_captacao_bruta)}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-col items-center">
-                          <Ring pct={pCNet} />
-                          <span className={`text-xs mt-0.5 ${cap.net < 0 ? 'text-red-600' : 'text-gray-500'}`}>{fmt(cap.net)}</span>
+                          <Ring pct={pNet} />
+                          <span className={`text-xs mt-0.5 ${net < 0 ? 'text-red-600' : 'text-gray-500'}`}>{fmt(net)}</span>
                           <span className="text-xs text-gray-300">/{fmt(meta.meta_captacao_net)}</span>
                         </div>
                       </td>
                       <td className="px-3 py-2 text-center">
                         <div className="flex flex-col items-center">
-                          <span className={`text-lg font-bold ${corCls(pCAb)}`}>{ct.contas_abertas}</span>
+                          <span className={`text-lg font-bold ${corCls(pCt)}`}>{ct.count}</span>
                           <span className="text-xs text-gray-300">/{meta.meta_contas_abertas}</span>
                         </div>
                       </td>
                       <td className="px-3 py-2 text-center">
                         <div className="flex flex-col items-center">
-                          <span className={`text-lg font-bold ${corCls(pCAt)}`}>{ct.contas_ativas}</span>
-                          <span className="text-xs text-gray-300">/{meta.meta_contas_ativas}</span>
+                          <span className={`text-lg font-bold ${corCls(pPts)}`}>{ct.pontos}</span>
+                          <span className="text-xs text-gray-300">/{meta.meta_pontos} pts</span>
                         </div>
                       </td>
                       <td className="px-3 py-3 text-right">
@@ -203,7 +189,6 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
         </div>
       </div>
 
-      {/* Modal edição de metas */}
       {editando && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
@@ -220,12 +205,8 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
               {erro && <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-lg px-4 py-3">{erro}</div>}
               <div className="space-y-3">
                 <div>
-                  <label className="label">Meta de Produção (R$)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0,00" value={form.meta_producao} onChange={e => setForm(f => ({ ...f, meta_producao: fmtInput(e.target.value) }))} />
-                </div>
-                <div>
-                  <label className="label">Meta Captação Bruta (R$)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0,00" value={form.meta_captacao_bruta} onChange={e => setForm(f => ({ ...f, meta_captacao_bruta: fmtInput(e.target.value) }))} />
+                  <label className="label">Meta de Receita (R$)</label>
+                  <input className="input" type="text" inputMode="numeric" placeholder="0,00" value={form.meta_receita} onChange={e => setForm(f => ({ ...f, meta_receita: fmtInput(e.target.value) }))} />
                 </div>
                 <div>
                   <label className="label">Meta Captação NET (R$)</label>
@@ -237,8 +218,8 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
                     <input className="input" type="number" min="0" placeholder="0" value={form.meta_contas_abertas} onChange={e => setForm(f => ({ ...f, meta_contas_abertas: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="label">Meta Contas Ativas 100k+</label>
-                    <input className="input" type="number" min="0" placeholder="0" value={form.meta_contas_ativas} onChange={e => setForm(f => ({ ...f, meta_contas_ativas: e.target.value }))} />
+                    <label className="label">Meta Pontos</label>
+                    <input className="input" type="number" min="0" step="0.5" placeholder="0" value={form.meta_pontos} onChange={e => setForm(f => ({ ...f, meta_pontos: e.target.value }))} />
                   </div>
                 </div>
               </div>

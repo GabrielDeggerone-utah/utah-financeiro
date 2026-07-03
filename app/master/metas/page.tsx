@@ -30,19 +30,21 @@ export default async function MetasMasterPage() {
   }
 
   const admin = createAdminSupabase()
+  const meses = getMeses()
+
   const [{ data: assessores }, { data: todasMetas }, { data: receitas }, { data: captacoes }, { data: contas }] = await Promise.all([
-    admin.from('profiles').select('id, nome').eq('ativo', true).order('nome'),
-    admin.from('metas').select('*'),
-    admin.from('receitas').select('assessor_id, data, volume').gte('data', `${getMeses()[0]}-01`),
-    admin.from('captacoes').select('assessor_id, data, captacao_bruta, saidas').gte('data', `${getMeses()[0]}-01`),
-    admin.from('contas_mes').select('*'),
+    admin.from('profiles').select('id, nome').order('nome'),
+    admin.from('metas').select('assessor_id,mes,meta_receita,meta_captacao_net,meta_contas_abertas,meta_pontos'),
+    admin.from('receitas').select('assessor_id, data, receita').gte('data', `${meses[0]}-01`),
+    admin.from('captacoes').select('assessor_id, data, captacao_bruta').gte('data', `${meses[0]}-01`),
+    admin.from('contas').select('assessor_id, mes, pontos').in('mes', meses),
   ])
 
   return (
     <MetasMasterClient
       nome={profile?.nome ?? ''}
       mesAtual={mesAtual}
-      meses={getMeses()}
+      meses={meses}
       assessores={assessores ?? []}
       todasMetas={todasMetas ?? []}
       receitas={receitas ?? []}

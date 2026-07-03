@@ -2,10 +2,10 @@
 import { useState } from 'react'
 import Layout from '@/components/Layout'
 
-type Meta = { mes: string; meta_producao: number; meta_captacao_bruta: number; meta_captacao_net: number; meta_contas_abertas: number; meta_contas_ativas: number }
+type Meta = { mes: string; meta_receita: number; meta_captacao_net: number; meta_contas_abertas: number; meta_pontos: number }
 type Receita = { data: string; volume: number; receita: number | null; produtos: { nome: string } | null; instituicoes: { nome: string } | null }
-type Captacao = { data: string; captacao_bruta: number; saidas: number }
-type Conta = { mes: string; contas_abertas: number; contas_ativas: number }
+type Captacao = { data: string; captacao_bruta: number; tipo: string | null }
+type Conta = { mes: string; pontos: number }
 
 type Props = {
   nome: string
@@ -25,8 +25,6 @@ function fmtMesCurto(m: string) { const [y, mo] = m.split('-'); return new Date(
 function cor(pct: number) { return pct >= 1 ? '#16a34a' : pct >= 0.7 ? '#f59e0b' : '#ef4444' }
 function corBg(pct: number) { return pct >= 1 ? 'bg-green-50 border-green-200' : pct >= 0.7 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200' }
 function corText(pct: number) { return pct >= 1 ? 'text-green-700' : pct >= 0.7 ? 'text-yellow-700' : 'text-red-600' }
-
-// ----- COMPONENTES GRÁFICOS -----
 
 function Ring({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.min(value / max, 1) : 0
@@ -68,7 +66,6 @@ function BarChart({ meses, values, goals }: { meses: string[]; values: number[];
 function DonutMix({ grupos }: { grupos: { nome: string; valor: number }[] }) {
   const total = grupos.reduce((s, g) => s + g.valor, 0)
   if (total === 0) return <p className="text-gray-400 text-sm text-center py-6">Sem dados para o período</p>
-
   const R = 52, cx = 68, cy = 68, c = 2 * Math.PI * R
   let offset = 0
   const arcs = grupos.map((g, i) => {
@@ -78,19 +75,15 @@ function DonutMix({ grupos }: { grupos: { nome: string; valor: number }[] }) {
     offset += dash
     return arc
   })
-
   return (
     <div className="flex items-center gap-4 flex-wrap">
       <svg width="136" height="136" viewBox="0 0 136 136" className="shrink-0">
         {arcs.map((a, i) => (
-          <circle key={i} cx={cx} cy={cy} r={R}
-            fill="none" stroke={a.cor} strokeWidth="24"
-            strokeDasharray={`${a.dash} ${c}`}
-            strokeDashoffset={-a.offset}
-            transform="rotate(-90 68 68)" />
+          <circle key={i} cx={cx} cy={cy} r={R} fill="none" stroke={a.cor} strokeWidth="24"
+            strokeDasharray={`${a.dash} ${c}`} strokeDashoffset={-a.offset} transform="rotate(-90 68 68)" />
         ))}
         <circle cx={cx} cy={cy} r={R - 16} fill="white" />
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="bold">{fmt(total).replace('R$ ', 'R$ ')}</text>
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="bold">{fmt(total).replace('R$ ', 'R$ ')}</text>
         <text x={cx} y={cy + 10} textAnchor="middle" fontSize="9" fill="#9ca3af">volume total</text>
       </svg>
       <div className="flex-1 space-y-1.5 min-w-0">
@@ -111,33 +104,18 @@ function LineChart({ meses, values }: { meses: string[]; values: number[] }) {
   const max = Math.max(...values, 0)
   const range = Math.max(max - min, 1)
   const W = 340, H = 100, padX = 8, padY = 12
-
   function yPos(v: number) { return padY + (1 - (v - min) / range) * (H - padY * 2) }
   function xPos(i: number) { return padX + (i / (meses.length - 1)) * (W - padX * 2) }
-
   const points = values.map((v, i) => `${xPos(i)},${yPos(v)}`).join(' ')
-  const zeroY = yPos(0)
   const lastVal = values[values.length - 1]
-
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        {/* Zero line */}
-        {min < 0 && max > 0 && (
-          <line x1={padX} y1={zeroY} x2={W - padX} y2={zeroY} stroke="#f3f4f6" strokeWidth="1" strokeDasharray="4 4" />
-        )}
-        {/* Area fill */}
-        <polyline
-          points={`${xPos(0)},${H - padY} ${points} ${xPos(meses.length - 1)},${H - padY}`}
+        <polyline points={`${xPos(0)},${H - padY} ${points} ${xPos(meses.length - 1)},${H - padY}`}
           fill="#059669" fillOpacity="0.08" stroke="none" />
-        {/* Line */}
         <polyline points={points} fill="none" stroke="#059669" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        {/* Dots */}
-        {values.map((v, i) => (
-          <circle key={i} cx={xPos(i)} cy={yPos(v)} r="3" fill={v >= 0 ? '#059669' : '#ef4444'} />
-        ))}
+        {values.map((v, i) => <circle key={i} cx={xPos(i)} cy={yPos(v)} r="3" fill={v >= 0 ? '#059669' : '#ef4444'} />)}
       </svg>
-      {/* Labels */}
       <div className="flex justify-between px-1 mt-1">
         {meses.map(m => <span key={m} className="text-xs text-gray-400">{fmtMesCurto(m)}</span>)}
       </div>
@@ -149,46 +127,32 @@ function LineChart({ meses, values }: { meses: string[]; values: number[] }) {
   )
 }
 
-// ----- TENDÊNCIA -----
 function Tendencia({ meta, realAtual, mes }: { meta: number; realAtual: number; mes: string }) {
   if (meta <= 0) return null
   const [ano, mo] = mes.split('-').map(Number)
   const hoje = new Date()
   const eMesAtual = hoje.getFullYear() === ano && hoje.getMonth() + 1 === mo
   if (!eMesAtual) return null
-
   const diaAtual = hoje.getDate()
   const diasNoMes = new Date(ano, mo, 0).getDate()
-  const diasUteis = diaAtual // simplificado — dias corridos
-  const projecao = diasUteis > 0 ? (realAtual / diasUteis) * diasNoMes : 0
+  const projecao = diaAtual > 0 ? (realAtual / diaAtual) * diasNoMes : 0
   const pctProjetado = projecao / meta
   const faltaDias = diasNoMes - diaAtual
   const faltaValor = Math.max(meta - realAtual, 0)
   const ritmoNecessario = faltaDias > 0 ? faltaValor / faltaDias : 0
-
   const emoji = pctProjetado >= 1 ? '🟢' : pctProjetado >= 0.8 ? '🟡' : '🔴'
-
   return (
     <div className={`rounded-xl border p-4 ${pctProjetado >= 1 ? 'bg-green-50 border-green-200' : pctProjetado >= 0.8 ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
       <div className="flex items-start gap-3">
         <span className="text-2xl leading-none mt-0.5">{emoji}</span>
         <div className="flex-1">
           <p className={`text-sm font-semibold ${pctProjetado >= 1 ? 'text-green-800' : pctProjetado >= 0.8 ? 'text-yellow-800' : 'text-red-800'}`}>
-            No ritmo atual, você fecha o mês em <span className="text-base">{Math.round(pctProjetado * 100)}%</span> da meta de produção.
+            No ritmo atual, você fecha o mês em <span className="text-base">{Math.round(pctProjetado * 100)}%</span> da meta de receita.
           </p>
           <div className="mt-2 grid grid-cols-3 gap-3 text-xs">
-            <div>
-              <p className="text-gray-500">Projeção de fechamento</p>
-              <p className="font-semibold text-gray-800">{fmt(projecao)}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Falta para a meta</p>
-              <p className="font-semibold text-gray-800">{fmt(faltaValor)}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Ritmo necessário/dia</p>
-              <p className="font-semibold text-gray-800">{fmt(ritmoNecessario)}</p>
-            </div>
+            <div><p className="text-gray-500">Projeção de fechamento</p><p className="font-semibold text-gray-800">{fmt(projecao)}</p></div>
+            <div><p className="text-gray-500">Falta para a meta</p><p className="font-semibold text-gray-800">{fmt(faltaValor)}</p></div>
+            <div><p className="text-gray-500">Ritmo necessário/dia</p><p className="font-semibold text-gray-800">{fmt(ritmoNecessario)}</p></div>
           </div>
           <p className="text-xs text-gray-400 mt-1.5">Baseado em {diaAtual} de {diasNoMes} dias corridos — {faltaDias} dias restantes</p>
         </div>
@@ -197,77 +161,71 @@ function Tendencia({ meta, realAtual, mes }: { meta: number; realAtual: number; 
   )
 }
 
-// ----- COMPONENTE PRINCIPAL -----
 export default function MetasClient({ nome, role, meses, metas, receitas, captacoes, contas }: Props) {
   const [mesSel, setMesSel] = useState(meses[meses.length - 1])
 
-  const meta = metas.find(m => m.mes === mesSel) ?? { mes: mesSel, meta_producao: 0, meta_captacao_bruta: 0, meta_captacao_net: 0, meta_contas_abertas: 0, meta_contas_ativas: 0 }
+  const meta = metas.find(m => m.mes === mesSel) ?? { mes: mesSel, meta_receita: 0, meta_captacao_net: 0, meta_contas_abertas: 0, meta_pontos: 0 }
 
   function aggRec(m: string) {
     return receitas.filter(r => r.data.startsWith(m)).reduce((s, r) => ({ vol: s.vol + r.volume, rec: s.rec + (r.receita ?? 0) }), { vol: 0, rec: 0 })
   }
   function aggCap(m: string) {
-    return captacoes.filter(c => c.data.startsWith(m)).reduce((s, c) => ({ bruta: s.bruta + c.captacao_bruta, saidas: s.saidas + c.saidas }), { bruta: 0, saidas: 0 })
+    return captacoes.filter(c => c.data.startsWith(m)).reduce((s, c) => s + c.captacao_bruta, 0)
+  }
+  function aggPontos(m: string) {
+    return contas.filter(c => c.mes === m).reduce((s, c) => s + c.pontos, 0)
   }
 
   const realProd = aggRec(mesSel)
-  const realCap  = aggCap(mesSel)
-  const realContas = contas.find(c => c.mes === mesSel) ?? { contas_abertas: 0, contas_ativas: 0 }
-  const captacaoNet = realCap.bruta - realCap.saidas
+  const captacaoNet = aggCap(mesSel)
+  const totalContasMes = contas.filter(c => c.mes === mesSel).length
+  const totalPontos = aggPontos(mesSel)
 
-  const pProd        = meta.meta_producao        > 0 ? realProd.vol            / meta.meta_producao        : 0
-  const pCapBruta    = meta.meta_captacao_bruta   > 0 ? realCap.bruta           / meta.meta_captacao_bruta  : 0
-  const pCapNet      = meta.meta_captacao_net     > 0 ? captacaoNet             / meta.meta_captacao_net    : 0
-  const pContasAb    = meta.meta_contas_abertas   > 0 ? realContas.contas_abertas / meta.meta_contas_abertas : 0
-  const pContasAt    = meta.meta_contas_ativas    > 0 ? realContas.contas_ativas  / meta.meta_contas_ativas  : 0
+  const pReceita  = meta.meta_receita      > 0 ? realProd.rec    / meta.meta_receita      : 0
+  const pCapNet   = meta.meta_captacao_net  > 0 ? captacaoNet     / meta.meta_captacao_net  : 0
+  const pContas   = meta.meta_contas_abertas > 0 ? totalContasMes / meta.meta_contas_abertas : 0
+  const pPontos   = meta.meta_pontos        > 0 ? totalPontos     / meta.meta_pontos        : 0
 
-  // Histórico 6 meses
-  const histProdReal = meses.map(m => aggRec(m).vol)
-  const histProdMeta = meses.map(m => metas.find(x => x.mes === m)?.meta_producao ?? 0)
-  const histCapReal  = meses.map(m => aggCap(m).bruta)
-  const histCapMeta  = meses.map(m => metas.find(x => x.mes === m)?.meta_captacao_bruta ?? 0)
-  const histNetReal  = meses.map(m => { const c = aggCap(m); return c.bruta - c.saidas })
+  const histRecReal  = meses.map(m => aggRec(m).rec)
+  const histRecMeta  = meses.map(m => metas.find(x => x.mes === m)?.meta_receita ?? 0)
+  const histCapNet   = meses.map(m => aggCap(m))
+  const histProdVol  = meses.map(m => aggRec(m).vol)
 
-  // Curva acumulada de captação NET (evolução de carteira)
-  const aucAcumulado = histNetReal.reduce<number[]>((acc, v) => {
+  const aucAcumulado = histCapNet.reduce<number[]>((acc, v) => {
     acc.push((acc[acc.length - 1] ?? 0) + v)
     return acc
   }, [])
 
-  // Mix de produtos (mês selecionado)
   const mixProduto = Object.values(
     receitas.filter(r => r.data.startsWith(mesSel)).reduce<Record<string, { nome: string; valor: number }>>((acc, r) => {
-      const nome = r.produtos?.nome ?? 'Outros'
-      if (!acc[nome]) acc[nome] = { nome, valor: 0 }
-      acc[nome].valor += r.volume
+      const n = r.produtos?.nome ?? 'Outros'
+      if (!acc[n]) acc[n] = { nome: n, valor: 0 }
+      acc[n].valor += r.volume
       return acc
     }, {})
   ).sort((a, b) => b.valor - a.valor)
 
-  // Mix de instituições (mês selecionado)
   const mixInstituicao = Object.values(
     receitas.filter(r => r.data.startsWith(mesSel)).reduce<Record<string, { nome: string; valor: number }>>((acc, r) => {
-      const nome = r.instituicoes?.nome ?? 'Outros'
-      if (!acc[nome]) acc[nome] = { nome, valor: 0 }
-      acc[nome].valor += r.volume
+      const n = r.instituicoes?.nome ?? 'Outros'
+      if (!acc[n]) acc[n] = { nome: n, valor: 0 }
+      acc[n].valor += r.volume
       return acc
     }, {})
   ).sort((a, b) => b.valor - a.valor)
 
   const kpis = [
-    { label: 'Produção', sub: 'Volume', pct: pProd, real: fmt(realProd.vol), meta: fmt(meta.meta_producao) },
-    { label: 'Cap. Bruta', sub: 'Captação', pct: pCapBruta, real: fmt(realCap.bruta), meta: fmt(meta.meta_captacao_bruta) },
+    { label: 'Receita', sub: 'Gerada', pct: pReceita, real: fmt(realProd.rec), meta: fmt(meta.meta_receita) },
     { label: 'Cap. NET', sub: 'Líquida', pct: pCapNet, real: fmt(captacaoNet), meta: fmt(meta.meta_captacao_net) },
-    { label: 'Contas Abertas', sub: 'No mês', pct: pContasAb, real: `${realContas.contas_abertas}`, meta: `${meta.meta_contas_abertas}` },
-    { label: 'Ativas 100k+', sub: 'Contas', pct: pContasAt, real: `${realContas.contas_ativas}`, meta: `${meta.meta_contas_ativas}` },
+    { label: 'Contas', sub: 'Abertas', pct: pContas, real: `${totalContasMes}`, meta: `${meta.meta_contas_abertas}` },
+    { label: 'Pontos', sub: 'Contas', pct: pPontos, real: `${totalPontos} pts`, meta: `${meta.meta_pontos} pts` },
   ]
 
-  const metaNaoDefinida = meta.meta_producao === 0 && meta.meta_captacao_bruta === 0 && meta.meta_contas_abertas === 0
+  const metaNaoDefinida = meta.meta_receita === 0 && meta.meta_captacao_net === 0 && meta.meta_contas_abertas === 0
 
   return (
     <Layout nome={nome} role={role}>
       <div className="px-6 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-lg font-semibold text-gray-900">Minhas Metas</h1>
@@ -284,13 +242,12 @@ export default function MetasClient({ nome, role, meses, metas, receitas, captac
           </div>
         )}
 
-        {/* ── TENDÊNCIA DE FECHAMENTO ── */}
         <div className="mb-6">
-          <Tendencia meta={meta.meta_producao} realAtual={realProd.vol} mes={mesSel} />
+          <Tendencia meta={meta.meta_receita} realAtual={realProd.rec} mes={mesSel} />
         </div>
 
-        {/* ── KPI RINGS ── */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {/* KPI Rings */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {kpis.map(k => (
             <div key={k.label} className={`card p-4 flex flex-col items-center border ${corBg(k.pct)}`}>
               <Ring value={k.pct} max={1} />
@@ -304,7 +261,16 @@ export default function MetasClient({ nome, role, meses, metas, receitas, captac
           ))}
         </div>
 
-        {/* ── BARRAS DE PROGRESSO ── */}
+        {/* Produção (volume) — linha separada, só para acompanhamento */}
+        <div className="card p-4 mb-6 flex items-center gap-4 border border-gray-100">
+          <div>
+            <p className="text-xs text-gray-400">Produção (volume)</p>
+            <p className="text-lg font-semibold text-gray-700">{fmt(realProd.vol)}</p>
+          </div>
+          <p className="text-xs text-gray-400 flex-1">Acompanhamento apenas — meta é de receita.</p>
+        </div>
+
+        {/* Barras de progresso */}
         <div className="card p-5 mb-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">Detalhamento — <span className="font-normal capitalize">{fmtMes(mesSel)}</span></h2>
           <div className="space-y-4">
@@ -322,7 +288,7 @@ export default function MetasClient({ nome, role, meses, metas, receitas, captac
           </div>
         </div>
 
-        {/* ── MIX DE PRODUTOS + INSTITUIÇÕES ── */}
+        {/* Mix por produto + instituição */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="card p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Mix por produto — <span className="font-normal capitalize">{fmtMes(mesSel)}</span></h3>
@@ -334,44 +300,41 @@ export default function MetasClient({ nome, role, meses, metas, receitas, captac
           </div>
         </div>
 
-        {/* ── EVOLUÇÃO DE CARTEIRA (AUC) ── */}
+        {/* Evolução de carteira */}
         <div className="card p-5 mb-6">
           <div className="flex items-start justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-gray-700">Evolução de carteira (AUC)</h3>
               <p className="text-xs text-gray-400 mt-0.5">Captação NET acumulada nos últimos 6 meses</p>
             </div>
-            <div className={`text-right`}>
+            <div>
               <p className="text-xs text-gray-400">Crescimento no período</p>
-              <p className={`text-base font-bold ${histNetReal.reduce((s, v) => s + v, 0) >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                {fmt(histNetReal.reduce((s, v) => s + v, 0))}
+              <p className={`text-base font-bold ${histCapNet.reduce((s, v) => s + v, 0) >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                {fmt(histCapNet.reduce((s, v) => s + v, 0))}
               </p>
             </div>
           </div>
           <LineChart meses={meses} values={aucAcumulado} />
         </div>
 
-        {/* ── HISTÓRICO EM GRÁFICO DE BARRAS ── */}
+        {/* Gráficos histórico */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="card p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">Produção — 6 meses</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">Receita — 6 meses</h3>
             <div className="flex gap-4 text-xs text-gray-400 mb-2">
               <span className="flex items-center gap-1"><span className="w-3 h-2 rounded bg-gray-200 inline-block" /> Meta</span>
               <span className="flex items-center gap-1"><span className="w-3 h-2 rounded inline-block bg-violet-600" /> Real</span>
             </div>
-            <BarChart meses={meses} values={histProdReal} goals={histProdMeta} />
+            <BarChart meses={meses} values={histRecReal} goals={histRecMeta} />
           </div>
           <div className="card p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">Captação Bruta — 6 meses</h3>
-            <div className="flex gap-4 text-xs text-gray-400 mb-2">
-              <span className="flex items-center gap-1"><span className="w-3 h-2 rounded bg-gray-200 inline-block" /> Meta</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-2 rounded inline-block" style={{ background: '#0891b2' }} /> Real</span>
-            </div>
-            <BarChart meses={meses} values={histCapReal} goals={histCapMeta} />
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">Produção (volume) — 6 meses</h3>
+            <p className="text-xs text-gray-400 mb-2">Acompanhamento — sem meta</p>
+            <BarChart meses={meses} values={histProdVol} goals={histProdVol.map(() => 0)} />
           </div>
         </div>
 
-        {/* ── TABELA HISTÓRICO ── */}
+        {/* Tabela histórico */}
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100">
             <p className="text-sm font-medium text-gray-700">Histórico 6 meses</p>
@@ -381,28 +344,29 @@ export default function MetasClient({ nome, role, meses, metas, receitas, captac
               <thead>
                 <tr className="bg-gray-50">
                   <th className="text-left text-xs font-medium text-gray-500 px-4 py-2">Mês</th>
-                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Prod. Real</th>
-                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Meta Prod.</th>
-                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Cap. Bruta</th>
+                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Receita</th>
+                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Meta Receita</th>
+                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Produção</th>
                   <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Cap. NET</th>
-                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">C. Abertas</th>
-                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">C. Ativas</th>
+                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Contas</th>
+                  <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Pontos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {[...meses].reverse().map((m, i) => {
                   const idx = meses.length - 1 - i
-                  const ct = contas.find(x => x.mes === m) ?? { contas_abertas: 0, contas_ativas: 0 }
-                  const pPr = histProdMeta[idx] > 0 ? histProdReal[idx] / histProdMeta[idx] : 0
+                  const pRec = histRecMeta[idx] > 0 ? histRecReal[idx] / histRecMeta[idx] : 0
+                  const pts = aggPontos(m)
+                  const nCt = contas.filter(c => c.mes === m).length
                   return (
                     <tr key={m} className={m === mesSel ? 'bg-utah-50' : 'hover:bg-gray-50'}>
                       <td className="px-4 py-2.5 text-gray-700 font-medium capitalize">{fmtMes(m)}</td>
-                      <td className="px-4 py-2.5 text-right"><span className={`font-medium ${corText(pPr)}`}>{fmt(histProdReal[idx])}</span></td>
-                      <td className="px-4 py-2.5 text-right text-gray-500">{fmt(histProdMeta[idx])}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-700">{fmt(histCapReal[idx])}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-700">{fmt(histNetReal[idx])}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-700">{ct.contas_abertas}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-700">{ct.contas_ativas}</td>
+                      <td className="px-4 py-2.5 text-right"><span className={`font-medium ${corText(pRec)}`}>{fmt(histRecReal[idx])}</span></td>
+                      <td className="px-4 py-2.5 text-right text-gray-500">{fmt(histRecMeta[idx])}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-600">{fmt(histProdVol[idx])}</td>
+                      <td className={`px-4 py-2.5 text-right ${histCapNet[idx] < 0 ? 'text-red-600' : 'text-gray-700'}`}>{fmt(histCapNet[idx])}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-700">{nCt}</td>
+                      <td className="px-4 py-2.5 text-right text-utah-600 font-semibold">{pts > 0 ? `${pts} pts` : '—'}</td>
                     </tr>
                   )
                 })}

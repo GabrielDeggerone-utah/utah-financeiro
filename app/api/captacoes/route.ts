@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest) {
   const ctx = await getCtx()
   if (!ctx) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
-  const { id, data, captacao_bruta, saidas, observacao } = await req.json()
+  const { id, data, captacao_bruta, tipo, observacao } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID obrigatório' }, { status: 400 })
 
   const admin = createAdminSupabase()
@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { error } = await admin.from('captacoes').update({
-    data, captacao_bruta, saidas: saidas ?? 0, observacao: observacao || null,
+    data, captacao_bruta, saidas: 0, tipo: tipo || 'dinheiro_novo', observacao: observacao || null,
   }).eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

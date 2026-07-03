@@ -23,10 +23,10 @@ export default async function MetasPage() {
   const mesInicio = `${meses[0]}-01`
 
   const [{ data: metas }, { data: receitas }, { data: captacoes }, { data: contas }] = await Promise.all([
-    supabase.from('metas').select('*').eq('assessor_id', user.id).in('mes', meses),
+    supabase.from('metas').select('mes,meta_receita,meta_captacao_net,meta_contas_abertas,meta_pontos').eq('assessor_id', user.id).in('mes', meses),
     supabase.from('receitas').select('data,volume,receita,produtos(nome),instituicoes(nome)').eq('assessor_id', user.id).gte('data', mesInicio).order('data'),
-    supabase.from('captacoes').select('data,captacao_bruta,saidas').eq('assessor_id', user.id).gte('data', mesInicio).order('data'),
-    supabase.from('contas_mes').select('mes,contas_abertas,contas_ativas').eq('assessor_id', user.id).in('mes', meses),
+    supabase.from('captacoes').select('data,captacao_bruta,tipo').eq('assessor_id', user.id).gte('data', mesInicio).order('data'),
+    supabase.from('contas').select('mes,pontos').eq('assessor_id', user.id).in('mes', meses),
   ])
 
   return (
