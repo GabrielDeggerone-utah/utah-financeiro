@@ -48,7 +48,7 @@ export default async function MasterPage() {
       .order('data', { ascending: false }),
     admin
       .from('contas')
-      .select('id, mes, tipo, numero_conta, nome_cliente, valor_ativacao, pontos, observacao, assessor_id, profiles(nome)')
+      .select('id, mes, tipo, numero_conta, nome_cliente, valor_ativacao, pontos, observacao, assessor_id')
       .in('mes', [mesAtual, mesPrev])
       .order('mes', { ascending: false }),
     admin

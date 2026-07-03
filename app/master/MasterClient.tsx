@@ -15,7 +15,7 @@ type Receita = {
   profiles: NomeObj; instituicoes: NomeObj; produtos: NomeObj
 }
 type Captacao = { id: string; data: string; captacao_bruta: number; tipo: string | null; observacao: string | null; assessor_id: string; profiles: NomeObj }
-type Conta    = { id: string; mes: string; tipo: string; numero_conta: string | null; nome_cliente: string | null; valor_ativacao: number; pontos: number; observacao: string | null; assessor_id: string; profiles: NomeObj }
+type Conta    = { id: string; mes: string; tipo: string; numero_conta: string | null; nome_cliente: string | null; valor_ativacao: number; pontos: number; observacao: string | null; assessor_id: string }
 type Meta     = { assessor_id: string; mes: string; meta_receita: number; meta_captacao_net: number; meta_contas_abertas: number; meta_pontos: number }
 type Assessor = { id: string; nome: string }
 type Backup   = { id: string; nome_arquivo: string; tipo: string; total_registros: number | null; created_at: string }
@@ -416,15 +416,73 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR 
           <>
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="card p-4"><p className="text-xs text-gray-500 mb-1">Total contas no período</p><p className="text-xl font-semibold text-gray-900">{filtContas.length}</p></div>
-              <div className="card p-4"><p className="text-xs text-gray-500 mb-1">Pontos totais</p><p className="text-xl font-semibold text-utah-600">{totalPontos} pts</p></div>
+              <div className="card p-4"><p className="text-xs text-gray-500 mb-1">Pontos totais (equipe)</p><p className="text-xl font-semibold text-utah-600">{totalPontos} pts</p></div>
               <div className="card p-4 text-xs text-gray-500 space-y-1">
                 <p className="font-medium mb-1">Tabela de pontos:</p>
                 <p>100k–299k → 0,5 pt</p>
                 <p>300k–999k → 1 pt | +1M → 2 pts</p>
               </div>
             </div>
+
+            {/* Resumo por assessor */}
+            <div className="card overflow-hidden mb-4">
+              <div className="px-4 py-3 border-b border-gray-100"><p className="text-sm font-medium text-gray-700">Resumo por assessor — <span className="font-normal capitalize">{fmtMes(mesFiltro)}</span></p></div>
+              {filtContas.length === 0 ? <p className="text-center text-gray-400 text-sm py-8">Nenhuma conta no período.</p> : (
+                <table className="w-full text-sm">
+                  <thead><tr className="bg-gray-50">
+                    <th className="text-left text-xs font-medium text-gray-500 px-4 py-2">Assessor</th>
+                    <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Contas</th>
+                    <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Meta contas</th>
+                    <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Pontos</th>
+                    <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">Meta pontos</th>
+                    <th className="text-right text-xs font-medium text-gray-500 px-4 py-2">% meta pts</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {assessores.map(a => {
+                      const cts = filtContas.filter(c => c.assessor_id === a.id)
+                      if (cts.length === 0) return null
+                      const pts = cts.reduce((s, c) => s + c.pontos, 0)
+                      const meta = metas.find(m => m.assessor_id === a.id)
+                      const pctPts = meta?.meta_pontos ? pts / meta.meta_pontos : 0
+                      const pctCt  = meta?.meta_contas_abertas ? cts.length / meta.meta_contas_abertas : 0
+                      return (
+                        <tr key={a.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">{a.nome}</td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-semibold ${corText(pctCt)}`}>{cts.length}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400">{meta?.meta_contas_abertas ?? '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-bold ${corText(pctPts)}`}>{pts} pts</span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400">{meta?.meta_pontos ? `${meta.meta_pontos} pts` : '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            {meta?.meta_pontos ? (
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${pctPts >= 1 ? 'bg-green-100 text-green-800' : pctPts >= 0.7 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700'}`}>
+                                {Math.round(pctPts * 100)}%
+                              </span>
+                            ) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot><tr className="bg-utah-50 border-t border-utah-100">
+                    <td className="px-4 py-2.5 text-xs font-semibold text-utah-700">Total equipe</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-bold text-utah-700">{filtContas.length}</td>
+                    <td className="px-4 py-2.5 text-right text-xs text-utah-400">{metas.reduce((s, m) => s + m.meta_contas_abertas, 0)}</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-bold text-utah-700">{totalPontos} pts</td>
+                    <td className="px-4 py-2.5 text-right text-xs text-utah-400">{metas.reduce((s, m) => s + m.meta_pontos, 0)} pts</td>
+                    <td />
+                  </tr></tfoot>
+                </table>
+              )}
+            </div>
+
+            {/* Detalhe individual */}
             <div className="card overflow-hidden">
-              {filtContas.length === 0 ? <p className="text-center text-gray-400 text-sm py-10">Nenhuma conta no período.</p> : (
+              <div className="px-4 py-3 border-b border-gray-100"><p className="text-sm font-medium text-gray-700">Detalhe por conta</p></div>
+              {filtContas.length === 0 ? null : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead><tr className="bg-gray-50 border-b border-gray-100">
@@ -435,18 +493,21 @@ export default function MasterClient({ nome, mesAtual, mesPrev, receitas: initR 
                       <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Pontos</th>
                     </tr></thead>
                     <tbody className="divide-y divide-gray-50">
-                      {filtContas.map(c => (
-                        <tr key={c.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 font-medium text-gray-900">{getNome(c.profiles) || '—'}</td>
-                          <td className="px-4 py-2.5">
-                            <p className="text-gray-800">{c.nome_cliente || '—'}</p>
-                            {c.numero_conta && <p className="text-xs text-gray-400">{c.numero_conta}</p>}
-                          </td>
-                          <td className="px-4 py-2.5"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tipoContaBadge(c.tipo)}`}>{tipoContaLabel(c.tipo)}</span></td>
-                          <td className="px-4 py-2.5 text-right text-gray-700">{c.valor_ativacao > 0 ? fmt(c.valor_ativacao) : '—'}</td>
-                          <td className="px-4 py-2.5 text-right font-bold text-utah-600">{c.pontos > 0 ? c.pontos : '—'}</td>
-                        </tr>
-                      ))}
+                      {filtContas.map(c => {
+                        const assessorNome = assessores.find(a => a.id === c.assessor_id)?.nome ?? '—'
+                        return (
+                          <tr key={c.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2.5 font-medium text-gray-900">{assessorNome}</td>
+                            <td className="px-4 py-2.5">
+                              <p className="text-gray-800">{c.nome_cliente || '—'}</p>
+                              {c.numero_conta && <p className="text-xs text-gray-400">{c.numero_conta}</p>}
+                            </td>
+                            <td className="px-4 py-2.5"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tipoContaBadge(c.tipo)}`}>{tipoContaLabel(c.tipo)}</span></td>
+                            <td className="px-4 py-2.5 text-right text-gray-700">{c.valor_ativacao > 0 ? fmt(c.valor_ativacao) : '—'}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-utah-600">{c.pontos > 0 ? c.pontos : '—'}</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
