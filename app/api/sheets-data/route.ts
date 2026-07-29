@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     { data: metas },
     { data: contas },
   ] = await Promise.all([
-    admin.from('profiles').select('id, nome').eq('role', 'assessor').eq('ativo', true).order('nome'),
+    admin.from('profiles').select('id, nome').eq('ativo', true).order('nome'),
     admin.from('receitas').select('assessor_id, receita, volume').gte('data', ini).lte('data', fim),
     admin.from('captacoes').select('assessor_id, captacao_bruta, tipo').gte('data', ini).lte('data', fim),
     admin.from('metas').select('assessor_id, meta_receita, meta_captacao_net, meta_contas_abertas, meta_pontos').eq('mes', mes),
