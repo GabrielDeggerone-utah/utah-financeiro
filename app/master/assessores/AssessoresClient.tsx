@@ -12,6 +12,11 @@ export default function AssessoresClient({ nome, assessores: inicial }: Props) {
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
 
+  // edição de role
+  const [editandoRole, setEditandoRole] = useState<string | null>(null)
+  const [novoRole, setNovoRole] = useState('')
+  const [salvandoRole, setSalvandoRole] = useState(false)
+
   function set(f: string, v: string) { setForm(prev => ({ ...prev, [f]: v })); setErro(''); setSucesso('') }
 
   async function criarAssessor(e: React.FormEvent) {
@@ -25,7 +30,7 @@ export default function AssessoresClient({ nome, assessores: inicial }: Props) {
     const data = await res.json()
     setLoading(false)
     if (!res.ok) { setErro(data.error || 'Erro ao cadastrar.'); return }
-    setSucesso(`Assessor "${form.nome}" cadastrado com sucesso!`)
+    setSucesso(`"${form.nome}" cadastrado com sucesso!`)
     setForm({ nome: '', email: '', senha: '', role: 'assessor' })
     setAssessores(prev => [...prev, data.profile].sort((a, b) => a.nome.localeCompare(b.nome)))
   }
@@ -39,13 +44,32 @@ export default function AssessoresClient({ nome, assessores: inicial }: Props) {
     if (res.ok) setAssessores(prev => prev.map(a => a.id === assessor.id ? { ...a, ativo: !a.ativo } : a))
   }
 
+  function abrirEditRole(assessor: Assessor) {
+    setEditandoRole(assessor.id)
+    setNovoRole(assessor.role)
+  }
+
+  async function salvarRole(id: string) {
+    setSalvandoRole(true)
+    const res = await fetch('/api/assessores', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, role: novoRole }),
+    })
+    setSalvandoRole(false)
+    if (res.ok) {
+      setAssessores(prev => prev.map(a => a.id === id ? { ...a, role: novoRole } : a))
+      setEditandoRole(null)
+    }
+  }
+
   return (
     <Layout nome={nome} role="master">
       <div className="max-w-3xl mx-auto px-6 py-8">
         <h1 className="text-lg font-semibold text-gray-900 mb-1">Assessores</h1>
         <p className="text-sm text-gray-500 mb-6">Cadastre e gerencie os acessos</p>
 
-        {/* Formulário */}
+        {/* Formulário novo assessor */}
         <div className="card p-6 mb-6">
           <p className="text-sm font-medium text-gray-700 mb-4">Novo assessor</p>
           {sucesso && <div className="mb-4 bg-green-50 border border-green-100 text-green-800 text-sm rounded-lg px-4 py-3">{sucesso}</div>}
@@ -72,7 +96,7 @@ export default function AssessoresClient({ nome, assessores: inicial }: Props) {
             </div>
             <div className="col-span-2 flex justify-end">
               <button className="btn-primary" type="submit" disabled={loading}>
-                {loading ? 'Cadastrando...' : 'Cadastrar assessor'}
+                {loading ? 'Cadastrando...' : 'Cadastrar'}
               </button>
             </div>
           </form>
@@ -87,7 +111,7 @@ export default function AssessoresClient({ nome, assessores: inicial }: Props) {
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">E-mail</th>
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Perfil</th>
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Status</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -95,18 +119,60 @@ export default function AssessoresClient({ nome, assessores: inicial }: Props) {
                 <tr key={a.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{a.nome}</td>
                   <td className="px-4 py-3 text-gray-600">{a.email}</td>
+
+                  {/* Coluna Perfil — editável */}
                   <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${a.role === 'master' ? 'bg-utah-50 text-utah-700' : 'bg-gray-100 text-gray-700'}`}>
-                      {a.role}
-                    </span>
+                    {editandoRole === a.id ? (
+                      <div className="flex items-center gap-2">
+                        <select
+                          className="input py-1 text-xs w-28"
+                          value={novoRole}
+                          onChange={e => setNovoRole(e.target.value)}
+                          autoFocus
+                        >
+                          <option value="assessor">Assessor</option>
+                          <option value="master">Master</option>
+                        </select>
+                        <button
+                          onClick={() => salvarRole(a.id)}
+                          disabled={salvandoRole}
+                          className="text-xs text-green-700 hover:text-green-900 font-medium"
+                        >
+                          {salvandoRole ? '...' : 'OK'}
+                        </button>
+                        <button
+                          onClick={() => setEditandoRole(null)}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => abrirEditRole(a)}
+                        className="group flex items-center gap-1.5"
+                        title="Clique para editar o perfil"
+                      >
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${a.role === 'master' ? 'bg-utah-50 text-utah-700' : 'bg-gray-100 text-gray-700'}`}>
+                          {a.role}
+                        </span>
+                        <svg className="w-3 h-3 text-gray-300 group-hover:text-gray-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    )}
                   </td>
+
                   <td className="px-4 py-3">
                     <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${a.ativo ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                       {a.ativo ? 'Ativo' : 'Inativo'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => toggleAtivo(a)} className={`text-xs ${a.ativo ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}`}>
+                    <button
+                      onClick={() => toggleAtivo(a)}
+                      className={`text-xs ${a.ativo ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}`}
+                    >
                       {a.ativo ? 'Desativar' : 'Ativar'}
                     </button>
                   </td>

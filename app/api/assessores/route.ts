@@ -40,8 +40,11 @@ export async function PATCH(req: NextRequest) {
   const master = await verificarMaster()
   if (!master) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
-  const { id, ativo } = await req.json()
+  const { id, ativo, role } = await req.json()
   const admin = createAdminSupabase()
-  await admin.from('profiles').update({ ativo }).eq('id', id)
+  const updates: Record<string, unknown> = {}
+  if (ativo !== undefined) updates.ativo = ativo
+  if (role !== undefined) updates.role = role
+  await admin.from('profiles').update(updates).eq('id', id)
   return NextResponse.json({ ok: true })
 }
