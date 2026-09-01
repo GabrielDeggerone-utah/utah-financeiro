@@ -51,9 +51,18 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
   const [form, setForm] = useState({ meta_receita: '', meta_captacao_net: '', meta_contas_abertas: '', meta_pontos: '' })
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const [replicando, setReplicando] = useState(false)
+  const [replicMsg, setReplicMsg] = useState('')
 
   function getMeta(assessorId: string, mes: string): Meta {
-    return todasMetas.find(m => m.assessor_id === assessorId && m.mes === mes) ?? { ...VAZIO, assessor_id: assessorId, mes }
+    const exact = todasMetas.find(m => m.assessor_id === assessorId && m.mes === mes)
+    if (exact) return exact
+    // fallback: meta mais recente anterior ao mês selecionado
+    const anterior = todasMetas
+      .filter(m => m.assessor_id === assessorId && m.mes < mes)
+      .sort((a, b) => b.mes.localeCompare(a.mes))[0]
+    if (anterior) return { ...anterior, mes }
+    return { ...VAZIO, assessor_id: assessorId, mes }
   }
 
   function getRealReceita(assessorId: string, mes: string) {
@@ -106,6 +115,47 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
     setEditando(null)
   }
 
+  // Replica a meta mais recente de cada assessor para o mês selecionado
+  async function replicarMetas() {
+    const assessoresSemMeta = assessores.filter(a =>
+      !todasMetas.find(m => m.assessor_id === a.id && m.mes === mesSel)
+    )
+    if (assessoresSemMeta.length === 0) {
+      setReplicMsg('Todos os assessores já têm metas para este mês.')
+      setTimeout(() => setReplicMsg(''), 3000)
+      return
+    }
+    setReplicando(true)
+    setReplicMsg('')
+    const novas: Meta[] = []
+    for (const a of assessoresSemMeta) {
+      const anterior = todasMetas
+        .filter(m => m.assessor_id === a.id && m.mes < mesSel)
+        .sort((x, y) => y.mes.localeCompare(x.mes))[0]
+      if (!anterior) continue
+      const res = await fetch('/api/metas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assessor_id:         a.id,
+          mes:                 mesSel,
+          meta_receita:        anterior.meta_receita,
+          meta_captacao_net:   anterior.meta_captacao_net,
+          meta_contas_abertas: anterior.meta_contas_abertas,
+          meta_pontos:         anterior.meta_pontos,
+        }),
+      })
+      if (res.ok) {
+        const { meta } = await res.json()
+        novas.push(meta)
+      }
+    }
+    setTodasMetas(prev => [...prev, ...novas])
+    setReplicando(false)
+    setReplicMsg(`${novas.length} meta(s) replicada(s) com sucesso!`)
+    setTimeout(() => setReplicMsg(''), 4000)
+  }
+
   return (
     <Layout nome={nome} role="master">
       <div className="px-6 py-8">
@@ -119,10 +169,24 @@ export default function MetasMasterClient({ nome, mesAtual, meses, assessores, t
           </select>
         </div>
 
+        {replicMsg && (
+          <div className={`mb-4 text-sm rounded-lg px-4 py-3 ${replicMsg.includes('sucesso') ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+            {replicMsg}
+          </div>
+        )}
+
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <p className="text-sm font-medium text-gray-700">Assessores — {fmtMes(mesSel)}</p>
-            <p className="text-xs text-gray-400">Clique em Editar para definir metas</p>
+            <button
+              onClick={replicarMetas}
+              disabled={replicando}
+              className="text-xs text-utah-600 hover:text-utah-800 font-medium flex items-center gap-1 disabled:opacity-50"
+              title="Copia as metas do mês anterior para assessores sem meta neste mês"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              {replicando ? 'Replicando...' : 'Replicar mês anterior'}
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

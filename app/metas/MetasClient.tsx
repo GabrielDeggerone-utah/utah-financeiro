@@ -164,7 +164,11 @@ function Tendencia({ meta, realAtual, mes }: { meta: number; realAtual: number; 
 export default function MetasClient({ nome, role, meses, metas, receitas, captacoes, contas }: Props) {
   const [mesSel, setMesSel] = useState(meses[meses.length - 1])
 
-  const meta = metas.find(m => m.mes === mesSel) ?? { mes: mesSel, meta_receita: 0, meta_captacao_net: 0, meta_contas_abertas: 0, meta_pontos: 0 }
+  const metaExata = metas.find(m => m.mes === mesSel)
+  const metaAnterior = !metaExata
+    ? metas.filter(m => m.mes < mesSel).sort((a, b) => b.mes.localeCompare(a.mes))[0]
+    : null
+  const meta = metaExata ?? metaAnterior ?? { mes: mesSel, meta_receita: 0, meta_captacao_net: 0, meta_contas_abertas: 0, meta_pontos: 0 }
 
   function aggRec(m: string) {
     return receitas.filter(r => r.data.startsWith(m)).reduce((s, r) => ({ vol: s.vol + r.volume, rec: s.rec + (r.receita ?? 0) }), { vol: 0, rec: 0 })
